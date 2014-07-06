@@ -136,6 +136,20 @@ public class YahooWeather implements LocationResult {
 	    WOEIDUtils.getInstance().setExceptionListener(exceptionListener);
 	}
 	
+	public void queryYahooWeatherByWoeid(final Context context, final String woeid, 
+			final YahooWeatherInfoListener result) {
+		YahooWeatherLog.d("query yahoo weather by WOEID");
+		mContext = context;
+        if (!NetworkUtils.isConnected(context)) {
+            if (mExceptionListener != null) mExceptionListener.onFailConnection(
+                    new Exception("Network is not avaiable"));
+        	return;
+        }
+		mWeatherInfoResult = result;
+		final WeatherQueryByWoeid task = new WeatherQueryByWoeid();
+		task.execute(new String[]{woeid});
+	}
+	
 	/**
 	 * Use a name of place to query Yahoo weather apis for weather information. 
 	 * Querying will be run on a separated thread to accessing Yahoo's apis.
@@ -391,6 +405,33 @@ public class YahooWeather implements LocationResult {
 		if (mNeedDownloadIcons) {
 			forecastInfo.setForecastConditionIcon(
 					ImageUtils.getBitmapFromWeb(forecastInfo.getForecastConditionIconURL()));
+		}
+	}
+	
+	private class WeatherQueryByWoeid extends AsyncTask<String, Void, WeatherInfo> {
+		@Override
+		protected WeatherInfo doInBackground(String... woeid) {
+			if (woeid == null || woeid.length > 1) {
+				throw new IllegalArgumentException("Parameter of WeatherQueryByWoeid is illegal");
+			}
+			WOEIDUtils woeidUtils = WOEIDUtils.getInstance();
+			mWoeidNumber = woeid[0];
+			if(!mWoeidNumber.equals(WOEIDUtils.WOEID_NOT_FOUND)) {
+				String weatherString = getWeatherString(mContext, mWoeidNumber);
+				Document weatherDoc = convertStringToDocument(mContext, weatherString);
+				WeatherInfo weatherInfo = parseWeatherInfo(mContext, weatherDoc, woeidUtils.getWoeidInfo());
+				return weatherInfo;
+			} else {
+				return null;
+			}
+		}
+		
+		@Override
+		protected void onPostExecute(WeatherInfo result) {
+			// TODO Auto-generated method stub
+			super.onPostExecute(result);
+			mWeatherInfoResult.gotWeatherInfo(result);
+			mContext = null;
 		}
 	}
 	
